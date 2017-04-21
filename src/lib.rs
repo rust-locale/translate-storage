@@ -21,9 +21,12 @@
 #[macro_use]
 extern crate lazy_static;
 
+extern crate locale_config;
+
 extern crate regex;
 
 use std::collections::BTreeMap;
+use locale_config::LanguageRange;
 
 // Auxiliary macros for match checking and then not holding on to the value:
 macro_rules! unpack {
@@ -63,6 +66,7 @@ pub mod po;
 ///
 /// Which variants are used depends on the language. In English it is easy: 1 is One and everything
 /// else is Other. But other languages may have more cases, with Arabic having all six.
+// TODO: When Count is in locale, use that version
 #[derive(Copy,Clone,Debug,Eq,PartialEq,Ord,PartialOrd,Hash)]
 pub enum Count {
     /// Zero has a separate variant in some langauges.
@@ -232,7 +236,7 @@ impl Unit {
 /// Defines common interface of catalogue readers. Read the units by simply iterating over the
 /// reader. The other methods are for the important metadata.
 pub trait CatalogueReader : Iterator<Item = Result<Unit, Error>> {
-    fn target_language(&self) -> &str;
+    fn target_language(&self) -> &LanguageRange<'static>;
     // TODO: More attributes, possibly a generic API
 }
 

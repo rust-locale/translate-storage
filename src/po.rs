@@ -10,6 +10,7 @@
 //! [gettext]: https://www.gnu.org/software/gettext/
 //! [tt]: http://toolkit.translatehouse.org/
 
+use locale_config::LanguageRange;
 use regex::{Regex,Captures};
 use std::collections::{BTreeMap,HashMap};
 use std::io::{BufRead,Lines};
@@ -219,7 +220,7 @@ pub struct PoReader<R: BufRead> {
     _next_unit: Option<Result<Unit, Error>>,
     _failed: Option<Error>,
     _header: HashMap<String, String>,
-    _target_language: String,
+    _target_language: LanguageRange<'static>,
     _plurals: Vec<Count>,
 }
 
@@ -230,7 +231,7 @@ impl<R: BufRead> PoReader<R> {
             _next_unit: None,
             _failed: None,
             _header: HashMap::new(),
-            _target_language: String::new(),
+            _target_language: LanguageRange::invariant(),
             _plurals: Vec::new(),
         };
         res._next_unit = res.next_unit();
@@ -322,7 +323,13 @@ impl<R: BufRead> PoReader<R> {
                     self._header.insert(key.to_owned(), val.to_owned());
                 }
             }
-            // FIXME FIXME: Extract language
+            if let Some(lang) = self._header.get("Language") {
+                self._target_language
+                    = LanguageRange::new(lang)
+                    .map(LanguageRange::into_static)
+                    .or_else(|_| LanguageRange::from_unix(lang))
+                    .unwrap_or_else(|_| LanguageRange::invariant());
+            }
             // FIXME FIXME: Extract plurals
         }
     }
@@ -342,7 +349,7 @@ impl<R: BufRead> Iterator for PoReader<R> {
 }
 
 impl<R: BufRead> CatalogueReader for PoReader<R> {
-    fn target_language(&self) -> &str {
+    fn target_language(&self) -> &LanguageRange<'static> {
         &self._target_language
     }
 }
