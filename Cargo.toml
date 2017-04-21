@@ -11,7 +11,8 @@ readme = "README.md"
 keywords = ["translate", "po", "uniforum po", "file"]
 
 [dependencies]
-nom = "2.1"
+lazy_static = "0.2"
+regex = "0.2"
 
 [package.metadata.release]
 upload-doc = true
