@@ -20,6 +20,3 @@ appveyor = { repository = "rust-locale/translate-storage" }
 lazy_static = "0.2"
 locale_config = "*" # locale_config always newest!
 regex = "0.2"
-
-[package.metadata.release]
-upload-doc = true
