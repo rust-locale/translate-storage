@@ -9,6 +9,12 @@ documentation = "https://docs.rs/translate-storage"
 repository = "https://github.com/rust-locale/translate-storage/"
 readme = "README.md"
 keywords = ["translate", "po", "uniforum po", "file"]
+# XXX: Any suitable categories?
+# categories = [ … ]
+
+[badges]
+travis-ci = { repository = "rust-locale/translate-storage" }
+appveyor = { repository = "rust-locale/translate-storage" }
 
 [dependencies]
 lazy_static = "0.2"
