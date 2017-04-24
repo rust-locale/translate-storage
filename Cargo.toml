@@ -18,5 +18,5 @@ appveyor = { repository = "rust-locale/translate-storage" }
 
 [dependencies]
 lazy_static = "0.2"
-locale_config = "*" # locale_config always newest!
+locale_config = ">=0.2.2" # locale_config always newest!
 regex = "0.2"
