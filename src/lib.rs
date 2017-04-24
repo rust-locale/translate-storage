@@ -287,9 +287,4 @@ impl std::error::Error for Error {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-    }
-}
+// Note: tests in each submodule

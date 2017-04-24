@@ -41,7 +41,7 @@ lazy_static!{
     static ref COMMENT_RE: Regex = Regex::new(
         r#"^\s*#([:.,]?)\s*(.*)"#).unwrap();
 
-    static ref UNESCAPE_RE: Regex = Regex::new("\\\\[rtn\"\\]").unwrap();
+    static ref UNESCAPE_RE: Regex = Regex::new(r#"\\[rtn"\\]"#).unwrap();
     static ref UNESCAPE_MAP: HashMap<&'static str, &'static str> = [
         (r"\r", "\r"),
         (r"\t", "\t"),
@@ -59,8 +59,8 @@ fn parse_po_line(line: &str, n: usize) -> Result<PoLine, ()> {
         if c.get(2).is_some() {
             return Ok(PoLine::Message(
                     n,
-                    c.get(1).unwrap().as_str().to_owned(),
-                    if c.get(1).unwrap().as_str().ends_with('|') {
+                    c.get(1).map(|x| x.as_str()).unwrap_or("").to_owned(),
+                    if c.get(1).map(|x| x.as_str()).unwrap_or("").ends_with('|') {
                         String::from("|") + c.get(2).unwrap().as_str()
                     } else {
                         c.get(2).unwrap().as_str().to_owned()
@@ -73,7 +73,7 @@ fn parse_po_line(line: &str, n: usize) -> Result<PoLine, ()> {
         } else {
             return Ok(PoLine::Continuation(
                     n,
-                    c.get(1).unwrap().as_str().to_owned(),
+                    c.get(1).map(|x| x.as_str()).unwrap_or("").to_owned(),
                     UNESCAPE_RE.replace(
                         c.get(3).unwrap().as_str(),
                         |d: &Captures| -> String {
@@ -137,7 +137,7 @@ impl<R: BufRead> MsgParser for Peekable<LineIter<R>> {
                     }
                 }
                 Some(Ok(PoLine::Comment(_, ':', s))) => {
-                    unit._locations.extend(s.split(",").map(str::trim).map(From::from));
+                    unit._locations.extend(s.split(char::is_whitespace).filter(|x| !x.is_empty()).map(From::from));
                 }
                 Some(Ok(PoLine::Comment(_, '.', s))) => {
                     unit._notes.push((Origin::Developer, s));
@@ -257,6 +257,7 @@ impl<R: BufRead> PoReader<R> {
 
     fn parse_unit(&mut self) -> Result<Option<Unit>, Error> {
         let mut unit = Unit::default();
+
         self._lines.parse_comments(&mut unit);
         match self._lines.peek() {
             None => return Ok(None), // end if no unit (possibly after comments)
@@ -300,6 +301,11 @@ impl<R: BufRead> PoReader<R> {
                 }
             }
             unit._target = Message::Plural(map);
+        }
+
+        if unit._state == State::Empty && !unit._target.is_blank() {
+            // translation is non-empty and state was not set yet, then it is final
+            unit._state = State::Final;
         }
 
         assert!(!unit._source.is_empty());
@@ -351,5 +357,115 @@ impl<R: BufRead> Iterator for PoReader<R> {
 impl<R: BufRead> CatalogueReader for PoReader<R> {
     fn target_language(&self) -> &LanguageRange<'static> {
         &self._target_language
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use ::CatalogueReader;
+    use ::locale_config::LanguageRange;
+    use ::Message::*;
+    use ::Origin::*;
+    use super::PoReader;
+
+    static SAMPLE_PO: &'static str = r###"
+msgid ""
+msgstr ""
+"Project-Id-Version: translate-storage test\n"
+"PO-Revision-Date: 2017-04-24 21:39+02:00\n"
+"Last-Translator: Jan Hudec <bulb@ucw.cz>\n"
+"Language-Team: Czech\n"
+"Language: cs\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=ISO-8859-2\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=(n==1) ? 0 : (n>=2 && n<=4) ? 1 : 2;\n"
+
+msgid "Simple message"
+msgstr "Jednoduchá zpráva"
+
+#. Extracted comment
+# Translator comment
+#: Location:42  Another:69
+#, fuzzy
+#| msgctxt "ConTeXt"
+#| msgid "Previous message"
+msgctxt "ConTeXt"
+msgid "Changed message"
+msgstr "Změněná\n"
+"zpráva"
+
+msgid "Untranslated message"
+msgstr ""
+
+# Another comment
+#~ msgid "Obsolete message"
+#~ msgstr "Zastaralá zpráva"
+
+"###;
+
+    #[test]
+    fn integration_test() {
+        let mut reader = PoReader::new(SAMPLE_PO.as_ref());
+
+        assert_eq!(LanguageRange::new("cs").unwrap(), *reader.target_language());
+        
+        let u1 = reader.next().unwrap().unwrap();
+        assert_eq!(None, *u1.context());
+        assert_eq!(Singular("Simple message".to_owned()), *u1.source());
+        assert_eq!(Singular("Jednoduchá zpráva".to_owned()), *u1.target());
+        assert_eq!(None, *u1.prev_context());
+        assert_eq!(Empty, *u1.prev_source());
+        assert!(u1.notes().is_empty());
+        assert!(u1.locations().is_empty());
+        assert_eq!(::State::Final, u1.state());
+        assert!(u1.is_translated());
+        assert!(!u1.is_obsolete());
+
+        let u2 = reader.next().unwrap().unwrap();
+        assert_eq!(Some("ConTeXt".to_owned()), *u2.context());
+        assert_eq!(Singular("Changed message".to_owned()), *u2.source());
+        assert_eq!(Singular("Změněná\nzpráva".to_owned()), *u2.target());
+        assert_eq!(Some("ConTeXt".to_owned()), *u2.prev_context());
+        assert_eq!(Singular("Previous message".to_owned()), *u2.prev_source());
+        assert_eq!(&[
+                (Developer, "Extracted comment".to_owned()),
+                (Translator, "Translator comment".to_owned()),
+            ], u2.notes().as_slice());
+        assert_eq!(&[
+                "Location:42".to_owned(),
+                "Another:69".to_owned(),
+            ], u2.locations().as_slice());
+        assert_eq!(::State::NeedsWork, u2.state());
+        assert!(!u2.is_translated());
+        assert!(!u2.is_obsolete());
+
+        let u3 = reader.next().unwrap().unwrap();
+        assert_eq!(None, *u3.context());
+        assert_eq!(Singular("Untranslated message".to_owned()), *u3.source());
+        assert_eq!(Singular("".to_owned()), *u3.target());
+        assert_eq!(None, *u3.prev_context());
+        assert_eq!(Empty, *u3.prev_source());
+        assert!(u3.notes().is_empty());
+        assert!(u3.locations().is_empty());
+        assert_eq!(::State::Empty, u3.state());
+        assert!(!u3.is_translated());
+        assert!(!u3.is_obsolete());
+        
+        let u4 = reader.next().unwrap().unwrap();
+        assert_eq!(None, *u4.context());
+        assert_eq!(Singular("Obsolete message".to_owned()), *u4.source());
+        assert_eq!(Singular("Zastaralá zpráva".to_owned()), *u4.target());
+        assert_eq!(None, *u4.prev_context());
+        assert_eq!(Empty, *u4.prev_source());
+        assert_eq!(&[
+                (Translator, "Another comment".to_owned()),
+            ], u4.notes().as_slice());
+        assert!(u4.locations().is_empty());
+        assert_eq!(::State::Final, u4.state());
+        assert!(u4.is_translated());
+        assert!(u4.is_obsolete());
+
+        assert!(reader.next().is_none());
     }
 }
