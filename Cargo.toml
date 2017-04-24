@@ -8,7 +8,7 @@ license = "MIT"
 documentation = "https://docs.rs/translate-storage"
 repository = "https://github.com/rust-locale/translate-storage/"
 readme = "README.md"
-keywords = ["translate", "po", "uniforum po", "file"]
+keywords = ["translate", "po", "gettext", "file"]
 # XXX: Any suitable categories?
 # categories = [ … ]
 
