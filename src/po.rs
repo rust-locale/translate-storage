@@ -290,7 +290,7 @@ impl<R: BufRead> PoReader<R> {
             }
         } else {
             assert!(unit._source.is_plural());
-            const TAGS: &[&'static str] =
+            const TAGS: &'static [&'static str] =
                 &["msgstr[0]", "msgstr[1]", "msgstr[2]", "msgstr[3]", "msgstr[4]", "msgstr[5]", "msgstr[6]"];
             let mut map = BTreeMap::new();
             for (c, t) in self._plurals.iter().zip(TAGS) {
