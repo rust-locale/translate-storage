@@ -149,7 +149,7 @@ pub enum Origin {
     Developer,
     /// Comment from translator.
     Translator,
-    /// Comment with explicit autor or context tag.
+    /// Comment with explicit author or context tag.
     Tag(String),
 }
 
@@ -159,7 +159,8 @@ pub enum Origin {
 ///
 /// # TODO
 ///
-/// - Obsolete, NeedsWork, Rejected, Unreviewed (from TT), possibly more.
+/// - Rejected, Unreviewed, NeedsReview (from TT), possibly more (note: obsolete is a separate
+///   flag)
 #[derive(Copy,Clone,PartialEq,Eq,PartialOrd,Ord,Debug,Hash)]
 pub enum State {
     /// The unit is not translated.
@@ -184,17 +185,11 @@ impl Default for State {
 /// - Optional *context* string that disambiguates the original.
 /// - A status. This indicates whether the unit is usable in the software.
 ///
-/// # TODO
-///
-/// - Attributes:
-///   - notes (comments)
-///   - locations
-///   - suggestions (alt-trans)
-///   - flags
-///   - …
-/// - Types:
-///   - Plurals (MultiString?)
-///   - Segmentation (xliff 2?)
+/// Additionally, it can also contain:
+///  - Notes, from developer or translator.
+///  - References back into the source where the unit is used.
+///  - Previous source and context if the target is automatic suggestion from fuzzy matching.
+///  - Obsolete flag, indicating the unit is not currently in use.
 #[derive(Clone,Debug,Default)]
 pub struct Unit {
     _context: Option<String>,
