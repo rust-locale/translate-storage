@@ -1,6 +1,6 @@
 [package]
 name = "translate-storage"
-version = "0.0.1-pre"
+version = "0.0.1"
 description = "Manipulate translation catalogs in PO format."
 authors = ["Jan Hudec <bulb@ucw.cz>"]
 license = "MIT"
